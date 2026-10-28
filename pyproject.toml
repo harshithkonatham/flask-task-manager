@@ -5,7 +5,10 @@ description = "A small to-do list web app built with Flask and SQLite"
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Harshith Konatham" }]
-dependencies = ["flask>=3.0"]
+dependencies = [
+    "flask>=3.0",
+    "flask-wtf>=1.2",
+]
 
 [dependency-groups]
 dev = ["pytest>=8.3", "pytest-cov>=5.0", "ruff>=0.6"]
