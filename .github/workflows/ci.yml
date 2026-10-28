@@ -1,0 +1,88 @@
+# Lint, test and scan on every push, then build, scan and smoke-test the image.
+name: ci
+
+on:
+  push:
+  schedule:
+    - cron: "41 6 * * 1" # weekly re-scan for newly published CVEs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.13.6"
+  PYTHON_VERSION: "3.12"
+  IMAGE: todo-app:ci
+
+jobs:
+  test:
+    name: Lint, test and scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Ruff
+        run: |
+          uv run ruff check --output-format=github .
+          uv run ruff format --check .
+      - name: Tests (coverage gate 90%)
+        run: uv run pytest --cov
+      - name: Bandit
+        run: uv run bandit -q -r todo -ll
+      - name: pip-audit
+        run: |
+          uv export --locked --no-dev --no-emit-project --no-header --quiet -o /tmp/requirements.txt
+          uv run pip-audit --disable-pip --strict -r /tmp/requirements.txt
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  image:
+    name: Build, scan and smoke-test container
+    needs: [test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+      - run: docker build -t "$IMAGE" .
+      - name: Scan image for CVEs (Grype; fail on fixable high/critical)
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: ${{ env.IMAGE }}
+          severity-cutoff: high
+          only-fixed: true
+          output-format: table
+      - name: Run hardened container and smoke test
+        run: |
+          docker run -d --name app -p 8000:8000 --read-only --tmpfs /tmp \
+            --tmpfs /data:uid=10001,gid=10001 --cap-drop ALL --security-opt no-new-privileges \
+            -e SECRET_KEY="$(openssl rand -hex 32)" "$IMAGE"
+          timeout 30 sh -c 'until curl -sf localhost:8000/ >/dev/null; do sleep 1; done'
+          curl -sf localhost:8000/ | grep -q "My To-Do List"
+          curl -sI localhost:8000/ | grep -qi "content-security-policy"
+          # A POST without a CSRF token must be refused.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -d task=x localhost:8000/tasks)" = 400
+      - name: Container logs
+        if: ${{ !cancelled() }}
+        run: docker logs app || true
