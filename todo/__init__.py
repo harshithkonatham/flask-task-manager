@@ -1,23 +1,43 @@
-from flask import Flask, render_template, request, redirect
+"""A small to-do list web app. Run with `flask --app todo run`."""
 
-app = Flask(__name__)
+from __future__ import annotations
 
-# In-memory list to store tasks (real-world: use a database later)
-tasks = []
+from pathlib import Path
+from typing import Any
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        # Add new task
-        task = request.form.get('task')
-        if task:
-            tasks.append(task)
-        # Delete task if requested
-        delete_index = request.form.get('delete')
-        if delete_index:
-            del tasks[int(delete_index)]
-        return redirect('/')
-    return render_template('index.html', tasks=tasks)
+from flask import Flask, abort, redirect, render_template, request, url_for
 
-if __name__ == '__main__':
-    app.run(debug=True)
+from todo import db
+
+MAX_TASK_LENGTH = 200
+
+
+def create_app(config: dict[str, Any] | None = None) -> Flask:
+    app = Flask(__name__, instance_relative_config=True)
+    app.config.from_mapping(DATABASE=str(Path(app.instance_path) / "todo.db"))
+    if config:
+        app.config.update(config)
+    Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
+    db.init_app(app)
+
+    @app.get("/")
+    def index() -> str:
+        return render_template("index.html", tasks=db.list_tasks(), max_length=MAX_TASK_LENGTH)
+
+    @app.post("/tasks")
+    def add_task() -> Any:
+        text = request.form.get("task", "").strip()
+        if not text or len(text) > MAX_TASK_LENGTH:
+            abort(400)
+        db.add_task(text)
+        return redirect(url_for("index"))
+
+    @app.post("/tasks/<int:task_id>/delete")
+    def delete_task(task_id: int) -> Any:
+        # Deleting by ID (not list position) means two open tabs can't delete
+        # the wrong task, and a bad ID is a 404 instead of a crash.
+        if not db.delete_task(task_id):
+            abort(404)
+        return redirect(url_for("index"))
+
+    return app

@@ -2,33 +2,37 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>To-Do List App</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
         ul { list-style-type: none; padding: 0; }
-        li { margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 5px; display: flex; justify-content: space-between; }
+        li { margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
         form { margin-bottom: 20px; }
+        li form { margin: 0; }
         input[type="text"] { width: 70%; padding: 8px; }
         button { padding: 8px 12px; background: #4CAF50; color: white; border: none; cursor: pointer; }
         .delete-btn { background: #f44336; }
+        .empty { color: #666; }
     </style>
 </head>
 <body>
     <h1>My To-Do List</h1>
-    <form method="POST">
-        <input type="text" name="task" placeholder="Add a new task..." required>
+    <form method="POST" action="{{ url_for('add_task') }}">
+        <input type="text" name="task" placeholder="Add a new task..." required maxlength="{{ max_length }}" aria-label="New task">
         <button type="submit">Add</button>
     </form>
     <ul>
     {% for task in tasks %}
         <li>
-            {{ task }}
-            <form method="POST" style="display:inline;">
-                <input type="hidden" name="delete" value="{{ loop.index0 }}">
-                <button type="submit" class="delete-btn">Delete</button>
+            <span>{{ task.text }}</span>
+            <form method="POST" action="{{ url_for('delete_task', task_id=task.id) }}">
+                <button type="submit" class="delete-btn" aria-label="Delete {{ task.text }}">Delete</button>
             </form>
         </li>
+    {% else %}
+        <li class="empty">Nothing to do yet.</li>
     {% endfor %}
-</ul>
+    </ul>
 </body>
 </html>
