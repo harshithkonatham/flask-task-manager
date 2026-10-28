@@ -58,6 +58,6 @@ def test_sql_in_task_is_stored_as_text(client: FlaskClient) -> None:
 
 
 def test_tasks_survive_a_restart(tmp_path: Path) -> None:
-    config = {"TESTING": True, "DATABASE": str(tmp_path / "keep.db")}
+    config = {"TESTING": True, "WTF_CSRF_ENABLED": False, "DATABASE": str(tmp_path / "keep.db")}
     create_app(config).test_client().post("/tasks", data={"task": "persist me"})
     assert b"persist me" in create_app(config).test_client().get("/").data
