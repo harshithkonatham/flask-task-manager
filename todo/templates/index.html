@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>To-Do List App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>My To-Do List</h1>
+    <form method="POST" action="{{ url_for('add_task') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="task" placeholder="Add a new task..." required maxlength="{{ max_length }}" aria-label="New task">
+        <button type="submit">Add</button>
+    </form>
+    <ul>
+    {% for task in tasks %}
+        <li>
+            <span>{{ task.text }}</span>
+            <form method="POST" action="{{ url_for('delete_task', task_id=task.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="delete-btn" aria-label="Delete {{ task.text }}">Delete</button>
+            </form>
+        </li>
+    {% else %}
+        <li class="empty">Nothing to do yet.</li>
+    {% endfor %}
+    </ul>
+</body>
+</html>
