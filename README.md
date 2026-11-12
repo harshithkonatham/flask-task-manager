@@ -1,6 +1,6 @@
 # To-Do List Web App
 
-[![ci](https://github.com/harshithkonatham/todo-flask-app/actions/workflows/ci.yml/badge.svg)](https://github.com/harshithkonatham/todo-flask-app/actions/workflows/ci.yml)
+[![ci](https://github.com/harshithkonatham/flask-task-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/harshithkonatham/flask-task-manager/actions/workflows/ci.yml)
 
 A small Flask + SQLite to-do list. I first built it as a beginner project, then
 went back to make it secure, tested and deployable.
